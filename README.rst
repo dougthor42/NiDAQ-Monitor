@@ -36,3 +36,7 @@ Specifications
     * ???
 
 * User silence alarm
+* On close, write all settings to config file
+* On open, read all settings from config file, or create config file if it
+  doesn't already exist.
+* 
