@@ -18,7 +18,7 @@ from __future__ import print_function, division#, absolute_import
 #from __future__ import unicode_literals
 #from docopt import docopt
 import wx
-import preferences_dialog as prefs
+import nidaq-monitor.preferences_dialog as prefs
 
 __author__ = "Douglas Thor"
 __version__ = "v0.1.0"
@@ -156,7 +156,7 @@ class MonitorFrame(wx.Frame):
         """ Binds events """
         # Global Events
         self.Bind(wx.EVT_ICONIZE, self.on_minimize)
-        self.Bind(wx.EVT_CLOSE, self.on_quit)       # TODO: Change to on_close?
+        self.Bind(wx.EVT_CLOSE, self.on_close_to_tray)
 
         # File Menu Events
         self.Bind(wx.EVT_MENU, self.on_quit, self.mf_exit)
@@ -191,6 +191,7 @@ class MonitorFrame(wx.Frame):
         self.Hide()
 
     def on_pref(self, event):
+        """ """
         print("clicked!")
         pref_dialog = prefs.MonitorPreferences(self)
         pref_dialog.ShowModal()
