@@ -14,7 +14,8 @@ Options:
     --version           # Show version.
 """
 
-from __future__ import print_function, division#, absolute_import
+from __future__ import print_function, division
+from __future__ import absolute_import
 #from __future__ import unicode_literals
 #from docopt import docopt
 import wx
@@ -25,6 +26,9 @@ import time
 
 __author__ = "Douglas Thor"
 __version__ = "v0.1.0"
+
+
+wx.MAGENTA = wx.Colour(255, 0, 255, 255)
 
 
 #class ExamplePlot(PlotCanvas.PlotCanvas):
@@ -73,13 +77,53 @@ class ScrollingListPlot(wx.Panel):
         True:
             X values are the timestamp of when the point was added. This could
             cause points to be non-uniformly spaced.
+
+    moving_avg:
+        Display a moving average dashed line for each data set. Boolean
+
+    moving_avg_pts:
+        Int. How many data points should be used to calculate the moving
+        average
+
+    moving_max:
+        Boolean. True displayes a dotted line representing the moving maximum.
+
+    moving_max_pts:
+        Int. How many data points should be used to calculate the moving
+        maximum. Defaults to the same number as ``moving_avg_pts``.
+
+    lwl:
+        Lower Warning Limit. Triggers a warning alarm when any data point is
+        above this value.
+
+    uwl:
+        Upper Warning Limit. Triggers a warning alarm when any data point is
+        above this value.
+
+    lcl:
+        Lower Critical Limit. Triggers a critical alarm when any data point is
+        above this value.
+
+    ucl:
+        Upper Critical Limit. Triggers a critical alarm when any data point is
+        above this value.
+
+    End Descr.
     """
     def __init__(self,
                  parent,
                  num_data_sets=3,
-                 max_pts=10,
+                 max_pts=15,
                  displayed_pts=5,
                  timestamp_x=False,
+                 moving_avg=False,
+                 moving_avg_pts=10,
+                 moving_max=False,
+                 moving_max_pts=None,
+                 lwl=-2,
+                 uwl=5,
+                 lcl=-5,
+                 ucl=10,
                  ):
         """
         __init__(self,
@@ -94,21 +138,58 @@ class ScrollingListPlot(wx.Panel):
         self.parent = parent
         self.num_data_sets = num_data_sets
         self.max_pts = max_pts
-        self.data_shape = (num_data_sets, max_pts)
-        self.y_data = None
+        self.displayed_pts = displayed_pts
         if not isinstance(timestamp_x, bool):
             raise ValueError("timestamp_x must be boolean True or False.")
         self.timestamp_x = timestamp_x
-        self.colors = {0: wx.RED,
-                       1: wx.GREEN,
-                       2: wx.CYAN,
-                       3: wx.WHITE,
+        if not isinstance(moving_avg, bool):
+            raise ValueError("moving_avg must be boolean True or False.")
+        self.moving_avg = moving_avg
+        self.moving_avg_pts = moving_avg_pts
+        self.moving_max = moving_max
+        self.moving_max_pts = moving_max_pts
+        if moving_max_pts is None:
+            self.moving_max_pts = self.moving_avg_pts
+        self.lwl = lwl
+        self.uwl = uwl
+        self.lcl = lcl
+        self.ucl = ucl
+
+        self.data_shape = (num_data_sets, max_pts)
+        self.y_data = None
+
+        self.colors = {0: wx.WHITE,         # Reading
+                       1: wx.YELLOW,        # Lower Warning
+                       2: wx.YELLOW,        # Upper Warning
+                       3: wx.RED,           # Lower Critical
+                       4: wx.RED,           # Upper Critical
+                       5: wx.CYAN,          # Moving Average
+                       6: wx.MAGENTA,       # Moving Maximum
                        }
+
+        self.linewidths = {0: 1,
+                           1: 1,
+                           2: 1,
+                           3: 1,
+                           4: 1,
+                           5: 1,
+                           6: 1,
+                           }
 
         self.prev_point = None
         self.x_pt = 0
-        self.x_data = np.zeros(self.max_pts, dtype=np.float)
-        self.x_data[:] = np.NaN
+        self.x_data = np.zeros(self.max_pts, dtype=np.float64)
+#        self.x_data[:] = np.NaN
+
+        # If using timestamps, fill the x data with n previous seconds
+        if self.timestamp_x:
+            _now = time.time()
+            self.x_data = np.arange(_now - self.max_pts,
+                                    _now,
+                                    1,
+                                    dtype=np.float64)
+        else:
+            self.x_data = np.arange(-self.max_pts, 0, 1, dtype=np.float64)
 
         self.init_data(self.y_data)
 
@@ -126,6 +207,11 @@ class ScrollingListPlot(wx.Panel):
                                               )
 
         self.canvas.InitAll()
+        self.canvas.GridUnder = Grid((2, 1),
+                                     Size=4,
+                                     Color="Grey",
+                                     Cross=True
+                                     )
 
         self.hbox = wx.BoxSizer(wx.HORIZONTAL)
         self.hbox.Add(self.canvas, 1, wx.EXPAND)
@@ -141,7 +227,7 @@ class ScrollingListPlot(wx.Panel):
 
         Start the timer
         """
-        self.timer.Start(750)
+        self.timer.Start(250)
 
     def on_timer(self, event):
         """
@@ -189,8 +275,6 @@ class ScrollingListPlot(wx.Panel):
         for _i, val in enumerate(point):
             self.y_data[_i][-1] = val
 
-#        self.draw_line()
-#        self.draw_point(point)
         self._update_plot()
 
         self.increment_x_pt()
@@ -199,36 +283,6 @@ class ScrollingListPlot(wx.Panel):
     def increment_x_pt(self):
         """ Increases our index variable """
         self.x_pt += 1
-
-    def draw_point(self, ys):
-        """
-        Draws the newly added point(s)
-        """
-        for _i, _y in enumerate(ys):
-            pt = FloatCanvas.Point((self.x_data[-1], _y),
-                                   Color=self.colors[_i],
-                                   Diameter=4)
-            self.canvas.AddObject(pt)
-
-        self.canvas.Update()
-        self.canvas.ZoomToBB()
-
-    def draw_line(self):
-        """
-        Draws the line connecting the previous point(s) and the current one
-        """
-        if self.x_pt == 0:
-            # We can't draw a line because there's no previous point
-            return
-        for _i in xrange(self.num_data_sets):
-            pts = ((self.x_data[-2], self.y_data[_i][-2]),
-                   (self.x_data[-1], self.y_data[_i][-1]))
-            line = FloatCanvas.Line(pts,
-                                    LineColor=self.colors[_i],
-                                    LineWidth=1,
-                                    )
-
-            self.canvas.AddObject(line)
 
     def change_point(self, point, index):
         """
@@ -245,21 +299,181 @@ class ScrollingListPlot(wx.Panel):
     def _update_plot(self):
         """ Updates the plot with any new data """
         self.canvas.ClearAll()
+
+        # Add the limit lines
+        self._add_limit_lines()
+
         for _i in xrange(self.num_data_sets):
             pts = np.column_stack((self.x_data, self.y_data[_i]))
 
             # Remove rows that have NaN values
             pts = pts[~np.isnan(pts).any(1)]
 
-            # TODO: Add points as well.
+            for pt in pts:
+                point = FloatCanvas.Point(pt,
+                                          Color=self.colors[_i],
+                                          Diameter=3,
+                                          )
+
+                self.canvas.AddObject(point)
+
             line = FloatCanvas.Line(pts,
                                     LineColor=self.colors[_i],
-                                    LineWidth=1,
+                                    LineWidth=self.linewidths[_i],
                                     )
+
+            # Calculate the moving average for this data
+#            self.calc_moving_avg(self.y_data[_i])
+
+            # Calculate the moving max for this data
+#            self.calc_moving_max(self.y_data[_i])
+
             self.canvas.AddObject(line)
 
         self.canvas.Update()
         self.canvas.ZoomToBB()
+        print(self.canvas.BoundingBox)
+
+    def _add_limit_lines(self):
+        """ Creates the limit lines and adds them to the plot """
+        if self.uwl is not None:
+            uwl_pts = ((self.x_data[0], self.uwl),
+                       (self.x_data[-1], self.uwl))
+            uwl_line = FloatCanvas.Line(uwl_pts,
+                                        LineColor=wx.YELLOW,
+                                        LineWidth=1,
+                                        LineStyle="LongDash"
+                                        )
+
+            self.canvas.AddObject(uwl_line)
+
+        if self.lwl is not None:
+            lwl_pts = ((self.x_data[0], self.lwl),
+                       (self.x_data[-1], self.lwl))
+            lwl_line = FloatCanvas.Line(lwl_pts,
+                                        LineColor=wx.YELLOW,
+                                        LineWidth=1,
+                                        LineStyle="LongDash"
+                                        )
+
+            self.canvas.AddObject(lwl_line)
+
+        if self.ucl is not None:
+            ucl_pts = ((self.x_data[0], self.ucl),
+                       (self.x_data[-1], self.ucl))
+            ucl_line = FloatCanvas.Line(ucl_pts,
+                                        LineColor=wx.RED,
+                                        LineWidth=1,
+                                        LineStyle="LongDash"
+                                        )
+
+            self.canvas.AddObject(ucl_line)
+
+        if self.lcl is not None:
+            lcl_pts = ((self.x_data[0], self.lcl),
+                       (self.x_data[-1], self.lcl))
+            lcl_line = FloatCanvas.Line(lcl_pts,
+                                        LineColor=wx.RED,
+                                        LineWidth=1,
+                                        LineStyle="LongDash"
+                                        )
+
+            self.canvas.AddObject(lcl_line)
+
+        return
+
+# TODO: Update this to be lines rather than dots
+class Grid(object):
+    """
+    An example of a Grid Object -- it is set on the FloatCanvas with one of:
+
+    FloatCanvas.GridUnder = Grid
+    FloatCanvas.GridOver = Grid
+
+    It will be drawn every time, regardless of the viewport.
+
+    In its _Draw method, it computes what to draw, given the ViewPortBB
+    of the Canvas it's being drawn on.
+
+    """
+    def __init__(self,
+                 Spacing,
+                 Size=2,
+                 Color="Black",
+                 Cross=False,
+                 CrossThickness=1):
+
+        self.Spacing = np.array(Spacing, np.float)
+        self.Spacing.shape = (2,)
+        self.Size = Size
+        self.Color = Color
+        self.Cross = Cross
+        self.CrossThickness = CrossThickness
+
+    def CalcPoints(self, Canvas):
+        ViewPortBB = Canvas.ViewPortBB
+
+        Spacing = self.Spacing
+
+        minx, miny = np.floor(ViewPortBB[0] / Spacing) * Spacing
+        maxx, maxy = np.ceil(ViewPortBB[1] / Spacing) * Spacing
+
+        ##fixme: this could use vstack or something with numpy
+        # making sure to get the last point
+        x = np.arange(minx, maxx + Spacing[0], Spacing[0])
+        # an extra is OK
+        y = np.arange(miny, maxy + Spacing[1], Spacing[1])
+        Points = np.zeros((len(y), len(x), 2), np.float)
+        x.shape = (1, -1)
+        y.shape = (-1, 1)
+        Points[:, :, 0] += x
+        Points[:, :, 1] += y
+        Points.shape = (-1, 2)
+
+        return Points
+
+    def _Draw(self, dc, Canvas):
+        Points = self.CalcPoints(Canvas)
+
+        Points = Canvas.WorldToPixel(Points)
+
+        dc.SetPen(wx.Pen(self.Color, self.CrossThickness))
+
+        if self.Cross:  # Use cross shaped markers
+            # Horizontal lines
+            LinePoints = np.concatenate((Points + (self.Size, 0),
+                                         Points + (-self.Size, 0)),
+                                        1)
+            dc.DrawLineList(LinePoints)
+            # Vertical Lines
+            LinePoints = np.concatenate((Points + (0, self.Size),
+                                         Points + (0, -self.Size)),
+                                        1)
+            dc.DrawLineList(LinePoints)
+            pass
+        else:   # use dots
+            # Note: this code borrowed from Pointset
+            # it really shouldn't be repeated here!.
+            if self.Size <= 1:
+                dc.DrawPointList(Points)
+            elif self.Size <= 2:
+                dc.DrawPointList(Points + (0, -1))
+                dc.DrawPointList(Points + (0, 1))
+                dc.DrawPointList(Points + (1, 0))
+                dc.DrawPointList(Points + (-1, 0))
+            else:
+                dc.SetBrush(wx.Brush(self.Color))
+                radius = int(round(self.Size / 2))
+                ##fixme: I really should add a DrawCircleList to wxPython
+                if len(Points) > 100:
+                    xy = Points
+                    xywh = np.concatenate((xy-radius,
+                                           np.ones(xy.shape) * self.Size),
+                                          1)
+                    dc.DrawEllipseList(xywh)
+                else:
+                    for xy in Points:
+                        dc.DrawCircle(xy[0], xy[1], radius)
 
 
 class _TestFrame(wx.Frame):

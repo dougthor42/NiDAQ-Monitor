@@ -14,11 +14,12 @@ Options:
     --version           # Show version.
 """
 
-from __future__ import print_function, division#, absolute_import
+from __future__ import print_function, division
 #from __future__ import unicode_literals
 #from docopt import docopt
 import wx
-import nidaq-monitor.preferences_dialog as prefs
+import preferences_dialog as prefs
+import plot
 
 __author__ = "Douglas Thor"
 __version__ = "v0.1.0"
@@ -63,6 +64,9 @@ class MonitorFrame(wx.Frame):
         # Set the MenuBar and create a status bar (easy thanks to wx.Frame)
         self.SetMenuBar(self.menu_bar)
         self.CreateStatusBar()
+
+        # Add our Main Panel
+        self.panel = MonitorPanel(self)
 
     def _create_menus(self):
         """ Create each menu for the menu bar """
@@ -230,6 +234,28 @@ class MonitorTaskBarIcon(wx.TaskBarIcon):
         """
         self.parent.Show()
         self.parent.Restore()
+
+
+class MonitorPanel(wx.Panel):
+    """
+    Main Panel of the NiDAQ Monitor.
+
+    Contains... well I haven't decided yet
+    """
+    def __init__(self,
+                 parent,
+                 ):
+        """ """
+        wx.Panel.__init__(self, parent)
+        self.init_ui()
+
+    def init_ui(self):
+        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.graph = plot.ScrollingListPlot(self,
+                                            )
+        self.hbox.Add(self.graph, 1, wx.EXPAND)
+
+        self.SetSizer(self.hbox)
 
 
 def main():

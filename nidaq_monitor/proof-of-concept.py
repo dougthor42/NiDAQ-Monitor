@@ -14,8 +14,9 @@ Options:
     --version           # Show version.
 """
 
-from __future__ import (print_function, division,
-                        absolute_import, unicode_literals)
+from __future__ import print_function, division,
+#from __future__ import absolute_import
+#from __future__ import unicode_literals
 from docopt import docopt
 import ctypes
 import random
