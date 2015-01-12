@@ -123,9 +123,9 @@ class ScrollingListPlot(wx.Panel):
                  moving_max=False,
                  moving_max_pts=None,
                  lwl=-2,
-                 uwl=5,
-                 lcl=-5,
-                 ucl=10,
+                 uwl=6,
+                 lcl=-7,
+                 ucl=13,
                  ):
         """
         __init__(self,
@@ -209,14 +209,9 @@ class ScrollingListPlot(wx.Panel):
                                               )
 
         self.canvas.InitAll()
-#        self.canvas.GridUnder = Grid((2, 1),
-#                                     Size=4,
-#                                     Color="Grey",
-#                                     Cross=True
-#                                     )
-        self.canvas.GridUnder = Grid((5, 6),
-                                     num_minor_x_lines=0,
-                                     num_minor_y_lines=0,
+
+        self.canvas.GridUnder = Grid((10, 10),
+                                     (2, 2),
                                      )
 
         self.hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -233,7 +228,7 @@ class ScrollingListPlot(wx.Panel):
 
         Start the timer
         """
-        self.timer.Start(500)
+        self.timer.Start(150)
 
     def on_timer(self, event):
         """
@@ -388,101 +383,7 @@ class ScrollingListPlot(wx.Panel):
 
         return
 
-# TODO: Update this to be lines rather than dots
-class DotGrid(object):
-    """
-    An example of a Grid Object -- it is set on the FloatCanvas with one of:
 
-    FloatCanvas.GridUnder = Grid
-    FloatCanvas.GridOver = Grid
-
-    It will be drawn every time, regardless of the viewport.
-
-    In its _Draw method, it computes what to draw, given the ViewPortBB
-    of the Canvas it's being drawn on.
-
-    """
-    def __init__(self,
-                 Spacing,
-                 Size=2,
-                 Color="Black",
-                 Cross=False,
-                 CrossThickness=1):
-
-        self.Spacing = np.array(Spacing, np.float)
-        self.Spacing.shape = (2,)
-        self.Size = Size
-        self.Color = Color
-        self.Cross = Cross
-        self.CrossThickness = CrossThickness
-
-    def CalcPoints(self, Canvas):
-        ViewPortBB = Canvas.ViewPortBB
-
-        Spacing = self.Spacing
-
-        minx, miny = np.floor(ViewPortBB[0] / Spacing) * Spacing
-        maxx, maxy = np.ceil(ViewPortBB[1] / Spacing) * Spacing
-
-        ##fixme: this could use vstack or something with numpy
-        # making sure to get the last point
-        x = np.arange(minx, maxx + Spacing[0], Spacing[0])
-        # an extra is OK
-        y = np.arange(miny, maxy + Spacing[1], Spacing[1])
-        Points = np.zeros((len(y), len(x), 2), np.float)
-        x.shape = (1, -1)
-        y.shape = (-1, 1)
-        Points[:, :, 0] += x
-        Points[:, :, 1] += y
-        Points.shape = (-1, 2)
-
-        return Points
-
-    def _Draw(self, dc, Canvas):
-        Points = self.CalcPoints(Canvas)
-
-        Points = Canvas.WorldToPixel(Points)
-
-        dc.SetPen(wx.Pen(self.Color, self.CrossThickness))
-
-        if self.Cross:  # Use cross shaped markers
-            # Horizontal lines
-            LinePoints = np.concatenate((Points + (self.Size, 0),
-                                         Points + (-self.Size, 0)),
-                                        1)
-            dc.DrawLineList(LinePoints)
-            # Vertical Lines
-            LinePoints = np.concatenate((Points + (0, self.Size),
-                                         Points + (0, -self.Size)),
-                                        1)
-            dc.DrawLineList(LinePoints)
-            pass
-        else:   # use dots
-            # Note: this code borrowed from Pointset
-            # it really shouldn't be repeated here!.
-            if self.Size <= 1:
-                dc.DrawPointList(Points)
-            elif self.Size <= 2:
-                dc.DrawPointList(Points + (0, -1))
-                dc.DrawPointList(Points + (0, 1))
-                dc.DrawPointList(Points + (1, 0))
-                dc.DrawPointList(Points + (-1, 0))
-            else:
-                dc.SetBrush(wx.Brush(self.Color))
-                radius = int(round(self.Size / 2))
-                ##fixme: I really should add a DrawCircleList to wxPython
-                if len(Points) > 100:
-                    xy = Points
-                    xywh = np.concatenate((xy-radius,
-                                           np.ones(xy.shape) * self.Size),
-                                          1)
-                    dc.DrawEllipseList(xywh)
-                else:
-                    for xy in Points:
-                        dc.DrawCircle(xy[0], xy[1], radius)
-
-
-# TODO: Update this to be lines rather than dots
 class Grid(object):
     """
     An example of a Grid Object -- it is set on the FloatCanvas with one of:
@@ -495,29 +396,59 @@ class Grid(object):
     In its _Draw method, it computes what to draw, given the ViewPortBB
     of the Canvas it's being drawn on.
 
+    Inputs:
+    -------
+
+    spacing ``tuple (float, float)``:
+        A 2-tuple of (x spacing, y spacing) for the major gridlines
+
+    num_minor_lines ``tuple (int, int)``:
+        A 2-tuple of (N x, N y) which defines the number of minor
+        gridlines between each major gridline.
+
+    major_x_pen ``tuple (int, int, int)``:
+        A 3-tuple of (wx.Colour, width, wx.PenStyle) that defines the
+        wx.Pen to draw for the major x (vertical) gridlines.
+
+    major_y_pen ``tuple (int, int, int)``:
+        A 3-tuple of (wx.Colour, width, wx.PenStyle) that defines the
+        wx.Pen to draw for the major y (horizontal) gridlines.
+
+    minor_x_pen ``tuple (int, int, int)``:
+        A 3-tuple of (wx.Colour, width, wx.PenStyle) that defines the
+        wx.Pen to draw for the minor x (vertical) gridlines.
+
+    minor_y_pen ``tuple (int, int, int)``:
+        A 3-tuple of (wx.Colour, width, wx.PenStyle) that defines the
+        wx.Pen to draw for the minor y (horizontal) gridlines.
+
     """
     def __init__(self,
                  spacing,
-                 num_minor_x_lines=0,
-                 num_minor_y_lines=0,
-                 major_lw=1,
-                 major_color=wx.GREY,
-                 major_style=wx.SOLID,
-                 minor_lw=1,
-                 minor_color=wx.GREY,
-                 minor_style=wx.SOLID,
+                 num_minor_lines=(0, 0),
+                 major_x_pen=(wx.GRAY, 2, wx.SOLID),
+                 major_y_pen=(wx.GRAY, 2, wx.SOLID),
+                 minor_x_pen=(wx.GRAY, 1, wx.DOT),
+                 minor_y_pen=(wx.GRAY, 1, wx.DOT),
                  ):
-
-        self.spacing = np.array(spacing, np.float)
+        """
+        __init__(self,
+                 2-tuple spacing,
+                 2-tuple num_minor_lines,
+                 3-tuple major_x_pen,
+                 3-tuple major_y_pen,
+                 3-tuple minor_x_pen,
+                 3-tuple minor_y_pen,
+                 )
+        """
+        self.spacing = np.array(spacing, np.float64)
         self.spacing.shape = (2,)
-        self.num_minor_x_lines = num_minor_x_lines
-        self.num_minor_y_lines = num_minor_y_lines
-        self.major_lw = major_lw
-        self.major_color = major_color
-        self.major_style = major_style
-        self.minor_lw = minor_lw
-        self.minor_color = minor_color
-        self.minor_style = minor_style
+        self.num_minor_lines = np.array(num_minor_lines, np.float64)
+        self.num_minor_lines.shape = (2,)
+        self.major_x_pen = major_x_pen
+        self.major_y_pen = major_y_pen
+        self.minor_x_pen = minor_x_pen
+        self.minor_y_pen = minor_y_pen
 
     def calc_lines(self, canvas):
         """
@@ -537,20 +468,23 @@ class Grid(object):
         major_x = np.arange(minx, maxx + spacing[0], spacing[0])
         major_y = np.arange(miny, maxy + spacing[1], spacing[1])
 
-        # TODO: calculate the minor gridlines and return those
-        minor_x = None
-        minor_y = None
+        minor_x = np.arange(minx,
+                            maxx + spacing[0],
+                            spacing[0] / (self.num_minor_lines[0] + 1))
+        minor_y = np.arange(miny,
+                            maxy + spacing[1],
+                            spacing[1] / (self.num_minor_lines[1] + 1))
 
-        if self.num_minor_x_lines == 0:
+        if self.num_minor_lines[0] == 0:
             minor_x = None
-        if self.num_minor_y_lines == 0:
+        if self.num_minor_lines[1] == 0:
             minor_y = None
 
         return major_x, major_y, minor_x, minor_y
 
     def convert_lines(self, canvas, lines, axis=0):
         """
-        Takes the gridlines calcualted by calc_lines and converts them
+        Takes the gridlines calculated by calc_lines and converts them
         from World coordinates to pixel coordinates and formats them in
         lists of (x1, y1, x2, y2) tuples for use with the dc.DrawLineList
         method.
@@ -611,24 +545,22 @@ class Grid(object):
         """ Actually draw the lines """
 
         # Calculate the lines
-        major_x, major_y, _, _ = self.calc_lines(canvas)
+        major_x, major_y, minor_x, minor_y = self.calc_lines(canvas)
 
-        # Need to convert to Pixel Coordinates to use dc.DrawLineList
+        # Convert to Pixel Coordinates and then draw the lines on the dc.
+        # Note that the inputs to the grid function are not wx.PEN instances,
+        # just a tuple. So we unpack the tuple into wx.Pen with `*`.
         major_x = self.convert_lines(canvas, major_x, 0)
+        dc.DrawLineList(major_x, wx.Pen(*self.major_x_pen))
         major_y = self.convert_lines(canvas, major_y, 1)
-#        minor_x = self.convert_lines(canvas, minor_y, 0)
-#        minor_y = self.convert_lines(canvas, minor_y, 0)
+        dc.DrawLineList(major_y, wx.Pen(*self.major_y_pen))
 
-        # Define the pens.
-        major_pen = wx.Pen(self.major_color, self.major_lw, self.major_style)
-#        minor_pen = wx.Pen(self.minor_color, self.minor_lw, self.minor_style)
-
-        # Draw the lines on the dc.
-        dc.DrawLineList(major_x, major_pen)
-        dc.DrawLineList(major_y, major_pen)
-#        dc.DrawLineList(minor_x, major_pen)
-#        dc.DrawLineList(minor_y, major_pen)
-
+        if minor_x is not None:
+            minor_x = self.convert_lines(canvas, minor_x, 0)
+            dc.DrawLineList(minor_x, wx.Pen(*self.minor_x_pen))
+        if minor_y is not None:
+            minor_y = self.convert_lines(canvas, minor_y, 1)
+            dc.DrawLineList(minor_y, wx.Pen(*self.minor_y_pen))
 
 
 class _TestFrame(wx.Frame):
