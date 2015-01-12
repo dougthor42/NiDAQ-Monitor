@@ -61,6 +61,9 @@ class MonitorFrame(wx.Frame):
         self._add_menus()
         self._bind_events()
 
+        # Set Default Menu States
+        self.me_run.Check(True)
+
         # Set the MenuBar and create a status bar (easy thanks to wx.Frame)
         self.SetMenuBar(self.menu_bar)
         self.CreateStatusBar()
@@ -105,8 +108,9 @@ class MonitorFrame(wx.Frame):
 
         self.me_run = wx.MenuItem(self.medit,
                                   wx.ID_ANY,
-                                  "&Run",
+                                  "&Run\tR",
                                   "Start monitoring",
+                                  kind=wx.ITEM_CHECK,
                                   )
 
         ### Menu: View (mv_) ###
@@ -142,6 +146,8 @@ class MonitorFrame(wx.Frame):
 
         self.medit.AppendItem(self.me_redraw)
         self.medit.AppendItem(self.me_pref)
+        self.medit.AppendSeparator()
+        self.medit.AppendItem(self.me_run)
 
         self.mview.AppendItem(self.mv_zoomfit)
         self.mview.AppendSeparator()
@@ -168,6 +174,7 @@ class MonitorFrame(wx.Frame):
 
         # Edit Menu Events
         self.Bind(wx.EVT_MENU, self.on_pref, self.me_pref)
+        self.Bind(wx.EVT_MENU, self.on_run, self.me_run)
 
         # View Menu Events
 #        self.Bind(wx.EVT_MENU, self.zoom_fit, self.mv_zoomfit)
@@ -184,6 +191,12 @@ class MonitorFrame(wx.Frame):
         self.taskbar_icon.RemoveIcon()
         self.taskbar_icon.Destroy()
         self.Destroy()
+
+    def on_run(self, event):
+        """
+        Start or stop monitoring
+        """
+        self.panel.graph.toggle_run()
 
     def on_minimize(self, event):
         """ Minimize Application """

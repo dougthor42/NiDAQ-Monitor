@@ -109,12 +109,10 @@ class ScrollingListPlot(wx.Panel):
     ucl:
         Upper Critical Limit. Triggers a critical alarm when any data point is
         above this value.
-
-    End Descr.
     """
     def __init__(self,
                  parent,
-                 num_data_sets=3,
+                 num_data_sets=1,
                  max_pts=50,
                  displayed_pts=5,
                  timestamp_x=False,
@@ -123,17 +121,11 @@ class ScrollingListPlot(wx.Panel):
                  moving_max=False,
                  moving_max_pts=None,
                  lwl=-2,
-                 uwl=6,
-                 lcl=-7,
-                 ucl=13,
+                 uwl=2,
+                 lcl=-4,
+                 ucl=4,
                  ):
         """
-        __init__(self,
-                 wx.Window parent,
-                 int num_data_sets=1,
-                 int max_pts=2048,
-                 int displayed_pts=20,
-                 ) -> wx.Panel
         """
         wx.Panel.__init__(self, parent)
 
@@ -203,24 +195,80 @@ class ScrollingListPlot(wx.Panel):
 
     def init_ui(self):
         """ Create the panel UI """
+        print("init ui")
         self.canvas = FloatCanvas.FloatCanvas(self,
                                               wx.ID_ANY,
                                               BackgroundColor="BLACK",
+#                                              size=(400, 200),
                                               )
 
         self.canvas.InitAll()
 
-        self.canvas.GridUnder = Grid((10, 10),
-                                     (2, 2),
+        self.canvas.GridUnder = Grid((5, 5),
+                                     (4, 4),
                                      )
 
+        spec_styles = ((wx.RED, 1, wx.SOLID),
+                       (wx.Colour(255, 127, 0, 255), 1, wx.SOLID),
+                       (wx.Colour(127, 127, 0, 255), 1, wx.SOLID),
+                       (wx.Colour(127, 127, 0, 255), 1, wx.SOLID),
+                       (wx.Colour(255, 127, 0, 255), 1, wx.SOLID),
+                       (wx.RED, 1, wx.SOLID)
+                       )
+        self.canvas.GridOver = SpecLines((10, 8, 6, -6, -8, -10),
+                                         spec_styles,
+                                         None,
+                                         )
+
+        # Create and set the panel's Sizer
+#        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
+#        self.hbox.Add(self.canvas, 1, wx.EXPAND)
+#        self.SetSizer(self.hbox)
+
+        # Create and set the panel's Sizer
+#        self.vbox = wx.BoxSizer(wx.VERTICAL)
+#        self.fgs = wx.FlexGridSizer(2, 2, 0, 0)
+#        self.fgs.Add(self.y_axis(), 1, wx.EXPAND)
+#        self.fgs.Add(self.canvas, 1, wx.EXPAND)
+#        self.fgs.Add((30, 30), 0, wx.EXPAND)
+#        self.fgs.Add(self.x_axis(), 1, wx.EXPAND)
+#        self.vbox.Add(self.fgs, 1, wx.EXPAND)
+#        self.SetSizer(self.vbox)
+
+        # Create and set the panel's Sizer
         self.hbox = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox.Add(self.canvas, 1, wx.EXPAND)
+        self.vbox1 = wx.BoxSizer(wx.VERTICAL)
+        self.vbox1.Add(self.y_axis(), 1, wx.EXPAND)
+        self.vbox1.Add((30, 30), 0, wx.EXPAND)
+        self.vbox2 = wx.BoxSizer(wx.VERTICAL)
+        self.vbox2.Add(self.canvas, 1, wx.EXPAND)
+        self.vbox2.Add(self.x_axis(), 0, wx.EXPAND)
+
+        self.hbox.Add(self.vbox1, 0, wx.EXPAND)
+        self.hbox.Add(self.vbox2, 1, wx.EXPAND)
+        self.hbox.SetSizeHints(self)
         self.SetSizer(self.hbox)
 
     def _bind_events(self):
         """ Bind events to things """
         self.Bind(wx.EVT_TIMER, self.on_timer, self.timer)
+#        self.canvas.Bind(wx.EVT_KEY_DOWN, self.key_down)
+
+    def key_down(self, event):
+        """ """
+        keycodes = {
+                    83: self.toggle_run,               # "S"
+#                    79: self.toggle_outline,          # "O"
+#                    67: self.toggle_crosshairs,       # "C"
+#                    76: self.toggle_legend,           # "L"
+                    }
+        key = event.GetKeyCode()
+
+        if key in keycodes.keys():
+            print(key)
+            keycodes[key]()
+        else:
+            print("KeyCode: {}".format(key))
 
     def _start_timer(self):
         """
@@ -228,7 +276,21 @@ class ScrollingListPlot(wx.Panel):
 
         Start the timer
         """
-        self.timer.Start(150)
+        self.timer.Start(100)
+
+    def stop(self):
+        """ """
+        self.timer.Stop()
+
+    def start(self):
+        """ """
+        self._start_timer()
+
+    def toggle_run(self):
+        if self.timer.IsRunning():
+            self.stop()
+        else:
+            self.start()
 
     def on_timer(self, event):
         """
@@ -238,6 +300,12 @@ class ScrollingListPlot(wx.Panel):
         plot.
         """
         self.add_point()
+
+    def y_axis(self):
+        return (30, 0)
+
+    def x_axis(self):
+        return (0, 30)
 
     def init_data(self, data=None):
         """ Write the initial dataset to our data handler """
@@ -302,7 +370,7 @@ class ScrollingListPlot(wx.Panel):
         self.canvas.ClearAll()
 
         # Add the limit lines
-        self._add_limit_lines()
+#        self._add_limit_lines()
 
         for _i in xrange(self.num_data_sets):
             pts = np.column_stack((self.x_data, self.y_data[_i]))
@@ -323,10 +391,10 @@ class ScrollingListPlot(wx.Panel):
                                     LineWidth=self.linewidths[_i],
                                     )
 
-            # Calculate the moving average for this data
+            # TODO: Calculate the moving average for this data
 #            self.calc_moving_avg(self.y_data[_i])
 
-            # Calculate the moving max for this data
+            # TODO: Calculate the moving max for this data
 #            self.calc_moving_max(self.y_data[_i])
 
             self.canvas.AddObject(line)
@@ -334,9 +402,9 @@ class ScrollingListPlot(wx.Panel):
         self.canvas.Update()
         self.canvas.ZoomToBB()
 
+    # Obsolete - replaced with GridOver
     def _add_limit_lines(self):
         """ Creates the limit lines and adds them to the plot """
-        # TODO: Could probably use FloatCanvas.GridOver to achieve this...
         if self.uwl is not None:
             uwl_pts = ((self.x_data[0], self.uwl),
                        (self.x_data[-1], self.uwl))
@@ -384,6 +452,58 @@ class ScrollingListPlot(wx.Panel):
         return
 
 
+class SpecLines(object):
+    """
+    SpecLines.
+
+    Pretty similar to Grid but only displayes lines on the y axis and allows
+    for events to be fired when a point gets outside of a line.
+
+    Inputs:
+    -------
+
+    canvas:
+        The FloatCanvas instance that the lines will be drawn on.
+
+    lines:
+        A 6-tuple of y values that define the lines. The tuple consists of
+        (outer_max, middle_max, inner_max, inner_min, middle_min, outer_min).
+        Any item may be None, but the tuple must be 6 items long. The
+        following must be true: outer_max >= middle_max >= inner_max
+        >= inner_min >= middle_min >= outer_min.
+
+    styles:
+        A 6-tuple that define the pen styles for each line. If a style
+        is None and a line is defined, then a default style will be used.
+
+    events:
+        A 6-tuple that defines what event to fire if any value falls outside
+        of a limit range.
+    """
+    def __init__(self, lines, styles, events):
+        """
+        """
+        self.lines = lines
+        self.styles = styles
+        self.events = events
+
+        self._pens = [wx.Pen(*(_i for _i in _s)) for _s in self.styles]
+
+    def _Draw(self, dc, canvas):
+        """ Actually draw the lines """
+        # Calculate the lines
+        bb = canvas.ViewPortBB
+
+        minx, miny = np.floor(bb[0])
+        maxx, maxy = np.ceil(bb[1])
+
+        _lines = []
+        for _y in self.lines:
+            (x1, y1), (x2, y2) = canvas.WorldToPixel([(minx, _y), (maxx, _y)])
+            _lines.append((x1, y1, x2, y2))
+        dc.DrawLineList(_lines, self._pens)
+
+
 class Grid(object):
     """
     An example of a Grid Object -- it is set on the FloatCanvas with one of:
@@ -426,10 +546,10 @@ class Grid(object):
     def __init__(self,
                  spacing,
                  num_minor_lines=(0, 0),
-                 major_x_pen=(wx.GRAY, 2, wx.SOLID),
-                 major_y_pen=(wx.GRAY, 2, wx.SOLID),
-                 minor_x_pen=(wx.GRAY, 1, wx.DOT),
-                 minor_y_pen=(wx.GRAY, 1, wx.DOT),
+                 major_x_pen=(wx.Colour(32, 32, 32, 255), 2, wx.SOLID),
+                 major_y_pen=(wx.Colour(32, 32, 32, 255), 2, wx.SOLID),
+                 minor_x_pen=(wx.Colour(32, 32, 32, 255), 1, wx.DOT),
+                 minor_y_pen=(wx.Colour(32, 32, 32, 255), 1, wx.DOT),
                  ):
         """
         __init__(self,
@@ -449,6 +569,8 @@ class Grid(object):
         self.major_y_pen = major_y_pen
         self.minor_x_pen = minor_x_pen
         self.minor_y_pen = minor_y_pen
+
+        self._ticks = None
 
     def calc_lines(self, canvas):
         """
@@ -479,6 +601,11 @@ class Grid(object):
             minor_x = None
         if self.num_minor_lines[1] == 0:
             minor_y = None
+
+        self.major_x = major_x
+        self.major_y = major_y
+        self.minor_x = minor_x
+        self.minor_y = minor_y
 
         return major_x, major_y, minor_x, minor_y
 
@@ -543,7 +670,6 @@ class Grid(object):
 
     def _Draw(self, dc, canvas):
         """ Actually draw the lines """
-
         # Calculate the lines
         major_x, major_y, minor_x, minor_y = self.calc_lines(canvas)
 
@@ -561,6 +687,46 @@ class Grid(object):
         if minor_y is not None:
             minor_y = self.convert_lines(canvas, minor_y, 1)
             dc.DrawLineList(minor_y, wx.Pen(*self.minor_y_pen))
+
+    @property
+    def ticks(self, axis):
+        return self._ticks
+
+
+class Axis(object):
+    """
+    A plot axis, either X or Y
+    """
+    def __init__(self,
+                 ticks,
+                 axis,
+                 ):
+        """
+        init
+
+        Let's assume x axis first.
+
+        We will need 1) the World coordinate - what gets displayed. 2) the
+        pixel coordinate - where it gets displayed.
+
+        Should axes be images?
+
+        Should they be a collection of StaticText and Line items?
+
+        Should they be something else?
+
+        I'm going to start off with a collection of wx.StaticText and wx.Line
+        items.
+
+        Inputs:
+        -------
+
+        ticks:
+            is a list of 2-tuples [(pixel, value), ...]. I think.
+
+        """
+        self.ticks = ticks
+        self.axis = axis
 
 
 class _TestFrame(wx.Frame):
