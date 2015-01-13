@@ -113,7 +113,7 @@ class ScrollingListPlot(wx.Panel):
     def __init__(self,
                  parent,
                  num_data_sets=1,
-                 max_pts=50,
+                 max_pts=30,
                  displayed_pts=5,
                  timestamp_x=False,
                  moving_avg=False,
@@ -152,13 +152,13 @@ class ScrollingListPlot(wx.Panel):
         self.data_shape = (num_data_sets, max_pts)
         self.y_data = None
 
-        self.colors = {0: wx.WHITE,         # Reading
-                       1: wx.YELLOW,        # Lower Warning
-                       2: wx.YELLOW,        # Upper Warning
-                       3: wx.RED,           # Lower Critical
-                       4: wx.RED,           # Upper Critical
-                       5: wx.CYAN,          # Moving Average
-                       6: wx.MAGENTA,       # Moving Maximum
+        self.colors = {0: wx.WHITE,
+                       1: wx.GREEN,
+                       2: wx.YELLOW,
+                       3: wx.BLUE,
+                       4: wx.RED,
+                       5: wx.CYAN,
+                       6: wx.MAGENTA,
                        }
 
         self.linewidths = {0: 1,
@@ -199,13 +199,12 @@ class ScrollingListPlot(wx.Panel):
         self.canvas = FloatCanvas.FloatCanvas(self,
                                               wx.ID_ANY,
                                               BackgroundColor="BLACK",
-#                                              size=(400, 200),
                                               )
 
         self.canvas.InitAll()
 
-        self.canvas.GridUnder = Grid((5, 5),
-                                     (4, 4),
+        self.canvas.GridUnder = Grid((5, 4),
+                                     (4, 2),
                                      )
 
         spec_styles = ((wx.RED, 1, wx.SOLID),
@@ -215,10 +214,11 @@ class ScrollingListPlot(wx.Panel):
                        (wx.Colour(255, 127, 0, 255), 1, wx.SOLID),
                        (wx.RED, 1, wx.SOLID)
                        )
-        self.canvas.GridOver = SpecLines((10, 8, 6, -6, -8, -10),
-                                         spec_styles,
-                                         None,
-                                         )
+        self.spec_lines = SpecLines((3, 2, 1, -1, -2, -3),
+                                    spec_styles,
+                                    None,
+                                    )
+        self.canvas.GridOver = self.spec_lines
 
         # Create and set the panel's Sizer
 #        self.hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -276,7 +276,7 @@ class ScrollingListPlot(wx.Panel):
 
         Start the timer
         """
-        self.timer.Start(100)
+        self.timer.Start(50)
 
     def stop(self):
         """ """
@@ -323,7 +323,9 @@ class ScrollingListPlot(wx.Panel):
         """ append a data point to the data set """
         if point is None:
             # Make a fake data point to add.
-            point = [random.random()+_i for _i in xrange(self.data_shape[0])]
+            point = [np.random.normal(0, 1)
+                     for _i
+                     in xrange(self.data_shape[0])]
 
         # convert to a 1d array if it's not already
         if not isinstance(point, np.ndarray):
@@ -346,6 +348,7 @@ class ScrollingListPlot(wx.Panel):
 
         self._update_plot()
 
+        self.check_points(point)
         self.increment_x_pt()
         return point
 
@@ -451,6 +454,23 @@ class ScrollingListPlot(wx.Panel):
 
         return
 
+    def check_points(self, points):
+        """ checks points, prints out conditions """
+        for point in points:
+            if (point > self.spec_lines.lines[0]
+                or point < self.spec_lines.lines[-1]):
+                print("Point {} out of zone 3".format(self.x_pt))
+            elif (point > self.spec_lines.lines[1]
+                  or point < self.spec_lines.lines[-2]):
+                print("Point {} out of zone 2".format(self.x_pt))
+            elif (point > self.spec_lines.lines[2]
+                  or point < self.spec_lines.lines[-3]):
+#                print("out of zone 1")
+                pass
+            else:
+                pass
+
+
 
 class SpecLines(object):
     """
@@ -546,10 +566,10 @@ class Grid(object):
     def __init__(self,
                  spacing,
                  num_minor_lines=(0, 0),
-                 major_x_pen=(wx.Colour(32, 32, 32, 255), 2, wx.SOLID),
-                 major_y_pen=(wx.Colour(32, 32, 32, 255), 2, wx.SOLID),
-                 minor_x_pen=(wx.Colour(32, 32, 32, 255), 1, wx.DOT),
-                 minor_y_pen=(wx.Colour(32, 32, 32, 255), 1, wx.DOT),
+                 major_x_pen=(wx.Colour(64, 64, 64, 255), 2, wx.SOLID),
+                 major_y_pen=(wx.Colour(64, 64, 64, 255), 2, wx.SOLID),
+                 minor_x_pen=(wx.Colour(64, 64, 64, 255), 1, wx.DOT),
+                 minor_y_pen=(wx.Colour(64, 64, 64, 255), 1, wx.DOT),
                  ):
         """
         __init__(self,
@@ -734,7 +754,7 @@ class _TestFrame(wx.Frame):
     A frame made only to test operation of the panel.
     """
     def __init__(self):
-        wx.Frame.__init__(self, None)
+        wx.Frame.__init__(self, None, size=(600, 200))
         self.panel = ScrollingListPlot(self)
 
 
